@@ -17,7 +17,7 @@ expect() {
   fi
 }
 
-expect fail "blank current-feature.md is not sufficient" "$root/intent/current-feature.md"
+expect pass "this repo's current-feature.md is sufficient" "$root/intent/current-feature.md"
 expect fail "blank feature template is not sufficient" "$root/templates/feature-template.md"
 expect fail "missing file fails" "$tmp/does-not-exist.md"
 

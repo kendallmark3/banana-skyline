@@ -1,0 +1,121 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="theme-color" content="#0d0f1e" />
+    <meta name="description" content="Banana Skyline — pick an angle and power, throw a banana across the city, hit the other gorilla." />
+    <title>Banana Skyline</title>
+    <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='6' fill='%232b1055'/%3E%3Cpath d='M7 10c2 10 10 15 19 12-6 6-19 3-21-9z' fill='%23ffd23f'/%3E%3C/svg%3E" />
+  </head>
+  <body>
+    <div id="app">
+      <header class="hud">
+        <div class="score p0" id="card0">
+          <span class="name" id="name0">Player 1</span>
+          <span class="pts" id="score0" aria-label="Player 1 score">0</span>
+        </div>
+        <div class="wind" id="wind" role="img" aria-label="Wind calm">
+          <span class="label">Wind</span>
+          <span class="gust" id="windText">calm</span>
+        </div>
+        <div class="score p1" id="card1">
+          <span class="pts" id="score1" aria-label="Player 2 score">0</span>
+          <span class="name" id="name1">Player 2</span>
+        </div>
+      </header>
+
+      <main class="stage" id="stage">
+        <canvas id="game" role="img" aria-label="City skyline with two gorillas on rooftops"></canvas>
+        <div class="banner" id="banner" aria-hidden="true"></div>
+        <div class="hint" id="hint" hidden>
+          <strong>How to play:</strong> set <b>angle</b> and <b>power</b>, then <b>Throw</b>. Mind the wind!
+          <span class="keys">Keys: ← → angle · ↑ ↓ power · Space throws</span>
+        </div>
+      </main>
+
+      <section class="controls" aria-label="Throw controls">
+        <div class="status">
+          <div class="turn" id="turn" role="status" aria-live="polite"></div>
+          <div class="last" id="last"></div>
+        </div>
+        <div class="field">
+          <label for="angle">Angle</label>
+          <button type="button" class="step" id="angleDown" aria-label="Decrease angle">−</button>
+          <input type="range" id="angle" min="0" max="90" step="1" value="45" />
+          <button type="button" class="step" id="angleUp" aria-label="Increase angle">+</button>
+          <output id="angleOut" for="angle">45°</output>
+        </div>
+        <div class="field">
+          <label for="power">Power</label>
+          <button type="button" class="step" id="powerDown" aria-label="Decrease power">−</button>
+          <input type="range" id="power" min="1" max="100" step="1" value="50" />
+          <button type="button" class="step" id="powerUp" aria-label="Increase power">+</button>
+          <output id="powerOut" for="power">50</output>
+        </div>
+        <button type="button" class="throw" id="throw">Throw</button>
+        <div class="tools">
+          <button type="button" id="soundBtn" aria-pressed="true">Sound</button>
+          <button type="button" id="retroBtn" aria-pressed="false">Retro</button>
+          <button type="button" id="menuBtn">New game</button>
+          <button type="button" id="aboutBtn">About</button>
+        </div>
+      </section>
+    </div>
+
+    <dialog id="menu" aria-labelledby="menuTitle">
+      <form method="dialog">
+        <h2 id="menuTitle">New game</h2>
+        <fieldset>
+          <legend>Players</legend>
+          <label class="choice"><input type="radio" name="mode" value="solo" checked /> 1 player vs computer</label>
+          <label class="choice"><input type="radio" name="mode" value="duo" /> 2 players, one device</label>
+        </fieldset>
+        <label class="row" for="target">First to
+          <select id="target" name="target">
+            <option value="1">1 point</option>
+            <option value="3" selected>3 points</option>
+            <option value="5">5 points</option>
+          </select>
+        </label>
+        <div class="actions">
+          <button type="submit" value="cancel">Cancel</button>
+          <button type="submit" value="start" class="primary" id="startBtn">Start</button>
+        </div>
+      </form>
+    </dialog>
+
+    <dialog id="over" aria-labelledby="overTitle">
+      <form method="dialog">
+        <h2 id="overTitle">Winner!</h2>
+        <p id="overText"></p>
+        <div class="actions">
+          <button type="submit" value="menu">Change game</button>
+          <button type="submit" value="rematch" class="primary" id="rematchBtn">Rematch</button>
+        </div>
+      </form>
+    </dialog>
+
+    <dialog id="about" aria-labelledby="aboutTitle">
+      <form method="dialog">
+        <h2 id="aboutTitle">About Banana Skyline</h2>
+        <p>
+          A small tribute to <em>GORILLAS.BAS</em>, the banana-throwing game that shipped with QBasic in the
+          early 1990s and was, for a lot of us, the first program we ever opened up and changed.
+        </p>
+        <p>
+          Everything here is original — code, art and sound are generated in your browser. Nothing from the
+          original game is included, and this project is not affiliated with or endorsed by Microsoft or IBM.
+        </p>
+        <p class="small">
+          <b>Controls:</b> sliders or − / + buttons; ← → angle, ↑ ↓ power (Shift for ×5), Space or Enter to
+          throw, M sound, R retro mode. Add <code>?seed=123</code> to the address to replay a skyline.
+        </p>
+        <div class="actions"><button type="submit" class="primary">Close</button></div>
+      </form>
+    </dialog>
+
+    <div class="sr-only" id="live" aria-live="polite"></div>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>

@@ -23,9 +23,24 @@ export function solveShot(world: World, player: PlayerId) {
 const gauss = (rng: Rng) => (rng() + rng() + rng() - 1.5) * 2;
 const clamp = (v: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, v));
 
-export function chooseAiShot(world: World, player: PlayerId, attempt: number, rng: Rng) {
+/** How wild the first throw is, and how fast the aim tightens with each attempt. */
+export type Difficulty = 'easy' | 'normal' | 'hard';
+export const DIFFICULTY: Record<Difficulty, { blur: number; decay: number }> = {
+  easy: { blur: 2.4, decay: 0.85 },
+  normal: { blur: 1.5, decay: 0.75 },
+  hard: { blur: 0.75, decay: 0.55 },
+};
+
+export function chooseAiShot(
+  world: World,
+  player: PlayerId,
+  attempt: number,
+  rng: Rng,
+  difficulty: Difficulty = 'normal',
+) {
   const ideal = solveShot(world, player);
-  const blur = 1.5 * Math.pow(0.75, attempt);
+  const level = DIFFICULTY[difficulty];
+  const blur = level.blur * Math.pow(level.decay, attempt);
   return {
     angle: clamp(Math.round(ideal.angle + gauss(rng) * 6 * blur), 5, 88),
     power: clamp(Math.round(ideal.power + gauss(rng) * 8 * blur), 5, 100),

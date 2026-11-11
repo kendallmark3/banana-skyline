@@ -72,6 +72,14 @@ const humanTurn = (page) =>
   assert.equal(requests.length, 0, 'no network calls during play');
   log('solo: computer took a turn, no network requests');
 
+  // difficulty is offered in the New game dialog and defaults to Normal
+  await page.click('#menuBtn');
+  assert.equal(await page.inputValue('#difficulty'), 'normal');
+  await page.selectOption('#difficulty', 'hard');
+  await page.screenshot({ path: `${OUT}/desktop-new-game.png` });
+  await page.click('#startBtn');
+  await page.waitForFunction(() => /hard/.test(document.getElementById('last').textContent), null, { timeout: 2000 });
+
   // keep missing on purpose until the computer wins a round
   for (let i = 0; i < 14 && (await state(page)).scores[1] === 0; i++) {
     await setAim(page, 45, 100);
@@ -112,6 +120,22 @@ const humanTurn = (page) =>
       shotHit = true;
       await page.waitForTimeout(160);
       await page.screenshot({ path: `${OUT}/desktop-hit.png` });
+      // the winner's celebration: chest-pound, dance, banana snack
+      const canvasShot = async (name) => (await page.$('#game')).screenshot({ path: `${OUT}/${name}.png` });
+      await page.waitForTimeout(700);
+      await canvasShot('celebrate-1-pound');
+      await page.waitForTimeout(900);
+      await canvasShot('celebrate-2-dance');
+      await page.waitForTimeout(750);
+      await canvasShot('celebrate-3-eat');
+      assert.equal(await page.textContent('#throw'), 'Next round');
+      await page.click('#throw'); // skipping the celebration starts the next round at once
+      await page.waitForFunction(() => window.__banana.state().phase === 'aiming', null, { timeout: 1000 });
+      assert.equal((await state(page)).round, 2);
+    }
+    if (after.phase === 'matchOver') {
+      await page.waitForTimeout(3950);
+      await (await page.$('#game')).screenshot({ path: `${OUT}/celebrate-4-backflip.png` });
     }
   }
   const end = await state(page);

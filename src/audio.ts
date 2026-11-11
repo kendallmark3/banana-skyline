@@ -30,10 +30,10 @@ export class Sfx {
     osc.stop(t + dur + 0.02);
   }
 
-  private noise(dur: number, vol: number, from: number, to: number) {
+  private noise(dur: number, vol: number, from: number, to: number, delay = 0) {
     const ctx = this.ctx;
     if (!ctx || this.muted) return;
-    const t = ctx.currentTime;
+    const t = ctx.currentTime + delay;
     const buffer = ctx.createBuffer(1, Math.ceil(ctx.sampleRate * dur), ctx.sampleRate);
     const data = buffer.getChannelData(0);
     for (let i = 0; i < data.length; i++) data[i] = Math.random() * 2 - 1;
@@ -68,8 +68,19 @@ export class Sfx {
     this.noise(0.9, 0.45, 2600, 60);
     this.tone(180, 0.7, 'sawtooth', 0.18, 30);
   }
-  win(long = false) {
-    const notes = long ? [523, 659, 784, 659, 784, 1047] : [523, 659, 784, 1047];
-    notes.forEach((f, i) => this.tone(f, 0.16, 'square', 0.08, undefined, 0.45 + i * 0.12));
+  win(long = false, delay = 0.45) {
+    const notes = long ? [523, 659, 784, 659, 784, 1047, 1319] : [523, 659, 784, 1047];
+    notes.forEach((f, i) => this.tone(f, 0.16, 'square', 0.08, undefined, delay + i * 0.13));
+  }
+  /** Chest-pound. */
+  thump(delay: number) {
+    this.tone(95, 0.1, 'sine', 0.4, 48, delay);
+  }
+  chomp(delay: number) {
+    this.noise(0.07, 0.22, 2600, 700, delay);
+    this.tone(240, 0.05, 'square', 0.05, 120, delay);
+  }
+  whee(delay: number) {
+    this.tone(400, 0.5, 'triangle', 0.1, 1400, delay);
   }
 }

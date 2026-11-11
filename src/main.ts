@@ -1,7 +1,8 @@
 import './style.css';
 import { Sfx } from './audio';
+import { BITE_TIMES, CELEBRATION_SECONDS, EAT_END, POUND_END, THUMP_TIMES } from './celebrate';
 import { Pose, Renderer } from './render';
-import { chooseAiShot, solveShot } from './sim/ai';
+import { DIFFICULTY, Difficulty, chooseAiShot, solveShot } from './sim/ai';
 import { Dims, MatchState, createMatch, nextRound, resolveFlight, throwBanana } from './sim/match';
 import { DT, ShotResult, samplePath } from './sim/physics';
 import { Rng, mixSeed, mulberry32 } from './sim/rng';
@@ -46,6 +47,8 @@ const reduced = () => motionQuery.matches || params.get('motion') === 'reduce';
 type Mode = 'solo' | 'duo';
 let mode: Mode = store.get('mode', 'solo') === 'duo' ? 'duo' : 'solo';
 let target = Number(store.get('target', '3')) || 3;
+const asDifficulty = (v: string): Difficulty => (v in DIFFICULTY ? (v as Difficulty) : 'normal');
+let difficulty = asDifficulty(store.get('difficulty', 'normal'));
 let retro = store.get('retro', '0') === '1';
 sfx.muted = store.get('muted', '0') === '1';
 
@@ -55,6 +58,10 @@ let aiAttempts = 0;
 let flight: { result: ShotResult; t0: number } | null = null;
 let trace: Float32Array | null = null;
 let throwPoseUntil = 0;
+// When the winner's celebration starts (a beat after the explosion), and whether confetti has fired.
+let celebrateAt = 0;
+let confettiDone = false;
+const CELEBRATE_DELAY = 0.55;
 // Deadlines (ms, performance.now clock) checked by the frame loop; 0 = none.
 let aiAt = 0;
 let roundAt = 0;
@@ -158,6 +165,10 @@ function launch(angle: number, power: number): void {
 function onThrowPressed(): void {
   sfx.unlock();
   if (match.phase === 'matchOver') return newMatch();
+  if (match.phase === 'roundOver') {
+    roundAt = performance.now(); // skip the rest of the celebration
+    return;
+  }
   if (canAct()) launch(Number(angleEl.value), Number(powerEl.value));
 }
 
@@ -177,13 +188,18 @@ function finishFlight(now: number): void {
     const line = selfHit ? `Oops! ${who[scorer]} ${verb}` : `${who[scorer]} ${verb}!`;
     showBanner(line);
     say(`${line} ${who[0]} ${match.scores[0]}, ${who[1]} ${match.scores[1]}.`);
-    if (match.phase === 'matchOver') {
-      sfx.win(true);
-      overAt = now + 2400;
-    } else {
-      sfx.win();
-      roundAt = now + 2800;
+    const final = match.phase === 'matchOver';
+    celebrateAt = now + CELEBRATE_DELAY * 1000;
+    confettiDone = false;
+    if (!reduced()) {
+      for (const t of THUMP_TIMES) sfx.thump(CELEBRATE_DELAY + t);
+      for (const t of BITE_TIMES) sfx.chomp(CELEBRATE_DELAY + t);
+      if (final) sfx.whee(CELEBRATE_DELAY + EAT_END);
     }
+    sfx.win(final, CELEBRATE_DELAY + POUND_END);
+    const wait = (CELEBRATE_DELAY + (final ? CELEBRATION_SECONDS.match : CELEBRATION_SECONDS.round)) * 1000;
+    if (final) overAt = now + wait;
+    else roundAt = now + wait;
   } else {
     if (outcome.kind === 'building') {
       renderer.explode(impact.x, impact.y, false, reduced());
@@ -235,14 +251,14 @@ function syncUI(): void {
 
   const last = match.lastShots[match.current];
   $('last').textContent =
-    match.phase === 'matchOver' ? '' : last ? `Last: ${last.angle}° · power ${last.power}` : `Round ${match.round} · first to ${match.target}`;
+    match.phase === 'matchOver' ? '' : last ? `Last: ${last.angle}° · power ${last.power}` : `Round ${match.round} · first to ${match.target}${mode === 'solo' ? ` · ${difficulty}` : ''}`;
 
   const locked = !canAct();
   for (const id of ['angle', 'power', 'angleDown', 'angleUp', 'powerDown', 'powerUp']) {
     $<HTMLInputElement>(id).disabled = locked;
   }
-  throwBtn.disabled = locked && match.phase !== 'matchOver';
-  throwBtn.textContent = match.phase === 'matchOver' ? 'Rematch' : 'Throw';
+  throwBtn.disabled = locked && match.phase !== 'matchOver' && match.phase !== 'roundOver';
+  throwBtn.textContent = match.phase === 'matchOver' ? 'Rematch' : match.phase === 'roundOver' ? 'Next round' : 'Throw';
   $('soundBtn').setAttribute('aria-pressed', String(!sfx.muted));
   $('retroBtn').setAttribute('aria-pressed', String(retro));
   document.body.classList.toggle('retro', retro);
@@ -279,7 +295,7 @@ function frame(now: number): void {
     }
   } else if (aiAt && now >= aiAt && match.phase === 'aiming' && isAiTurn()) {
     aiAt = 0;
-    const shot = chooseAiShot(match.world, 1, aiAttempts++, aiRng);
+    const shot = chooseAiShot(match.world, 1, aiAttempts++, aiRng, difficulty);
     setAim(shot.angle, shot.power);
     launch(shot.angle, shot.power);
   } else if (roundAt && now >= roundAt && match.phase === 'roundOver') {
@@ -293,6 +309,13 @@ function frame(now: number): void {
     showMatchOver();
   }
 
+  const celebrating = match.phase === 'roundOver' || match.phase === 'matchOver';
+  const celebrate = celebrating ? { t: (now - celebrateAt) / 1000, final: match.phase === 'matchOver' } : null;
+  if (celebrate && !confettiDone && celebrate.t >= EAT_END && !reduced()) {
+    confettiDone = true;
+    const champ = match.world.gorillas[match.victim === 0 ? 1 : 0];
+    renderer.confetti(champ.x, champ.y - 30);
+  }
   const last = match.lastShots[match.current];
   renderer.draw({
     world: match.world,
@@ -305,6 +328,7 @@ function frame(now: number): void {
       ? { player: match.current, angle: Number(angleEl.value), power: Number(powerEl.value), prevAngle: last?.angle ?? null }
       : null,
     poses: poses(now),
+    celebrate,
     reduced: reduced(),
   });
   requestAnimationFrame(frame);
@@ -340,6 +364,7 @@ $('aboutBtn').addEventListener('click', () => aboutDlg.showModal());
 function openMenu(): void {
   menuDlg.querySelectorAll<HTMLInputElement>('input[name=mode]').forEach((r) => (r.checked = r.value === mode));
   $<HTMLSelectElement>('target').value = String(target);
+  $<HTMLSelectElement>('difficulty').value = difficulty;
   menuDlg.returnValue = '';
   menuDlg.showModal();
 }
@@ -353,6 +378,8 @@ menuDlg.addEventListener('close', () => {
   target = Number($<HTMLSelectElement>('target').value) || 3;
   store.set('mode', mode);
   store.set('target', String(target));
+  difficulty = asDifficulty($<HTMLSelectElement>('difficulty').value);
+  store.set('difficulty', difficulty);
   sfx.unlock();
   newMatch();
 });

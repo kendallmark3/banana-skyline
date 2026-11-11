@@ -237,4 +237,28 @@ describe('computer opponent', () => {
     expect(within8).toBeGreaterThanOrEqual(games * 0.7);
     expect(firstTry).toBeLessThanOrEqual(games * 0.5);
   });
+
+  it('needs more throws on Easy than Normal, and more on Normal than Hard', () => {
+    const average = (difficulty: 'easy' | 'normal' | 'hard') => {
+      let total = 0;
+      const games = 16;
+      for (let seed = 1; seed <= games; seed++) {
+        const world = generateWorld(seed);
+        const rng = mulberry32(seed * 17);
+        let attempt = 0;
+        for (; attempt < 15; attempt++) {
+          const shot = chooseAiShot(world, 1, attempt, rng, difficulty);
+          const r = simulateShot(world, { player: 1, ...shot });
+          if (r.outcome.kind === 'building') world.craters.push({ ...r.impact, r: 16 });
+          if (r.outcome.kind === 'gorilla' && r.outcome.victim === 0) break;
+        }
+        total += attempt + 1;
+      }
+      return total / games;
+    };
+    const [easy, normal, hard] = [average('easy'), average('normal'), average('hard')];
+    expect(easy).toBeGreaterThan(normal + 1);
+    expect(normal).toBeGreaterThan(hard + 1);
+    expect(hard).toBeLessThan(4);
+  }, 30000);
 });

@@ -1,3 +1,4 @@
+import { Arm, celebration } from './celebrate';
 import { mixSeed, mulberry32 } from './sim/rng';
 import { Gorilla, PlayerId, World, bananaStart } from './sim/world';
 
@@ -18,6 +19,8 @@ export interface Scene {
   trace: Float32Array | null;
   aim: { player: PlayerId; angle: number; power: number; prevAngle: number | null } | null;
   poses: [Pose, Pose];
+  /** Seconds into the winner's celebration, and whether it won the match. */
+  celebrate: { t: number; final: boolean } | null;
   reduced: boolean;
 }
 
@@ -157,6 +160,18 @@ export class Renderer {
         size: 1.5 + Math.random() * 2.5,
         color: colors[i % colors.length],
       });
+    }
+  }
+
+  /** Banana-yellow confetti for the winner's finale. */
+  confetti(x: number, y: number): void {
+    if (this.theme.retro) return;
+    const colors = ['#ffd23f', '#fff3b0', PLAYER_COLORS[0], PLAYER_COLORS[1]];
+    for (let i = 0; i < 40; i++) {
+      const a = -Math.PI / 2 + (Math.random() - 0.5) * 1.6;
+      const s = 120 + Math.random() * 160;
+      const max = 0.8 + Math.random() * 0.8;
+      this.particles.push({ x, y, vx: Math.cos(a) * s, vy: Math.sin(a) * s, life: max, max, size: 2 + Math.random() * 2, color: colors[i % 4] });
     }
   }
 
@@ -361,18 +376,29 @@ export class Renderer {
     const pose = scene.poses[id];
     const facing = id === 0 ? 1 : -1;
     const t = scene.time;
-    const beat = Math.sin(t * 10);
     const fur = retro ? '#fca854' : '#5e3d2b';
     const dark = retro ? '#a85400' : '#3b2418';
     const skin = retro ? '#fcd8a8' : '#cf9668';
+    const ink = '#1a0f0a';
     const rect = (x: number, y: number, w: number, h: number, c: string) => {
       ctx.fillStyle = c;
       ctx.fillRect(x, y, w, h);
     };
+    const move =
+      pose === 'cheer' && scene.celebrate
+        ? celebration(scene.celebrate.t, scene.celebrate.final, facing, scene.reduced)
+        : null;
+    let left: Arm = pose === 'throw' && facing > 0 ? 'up' : 'down';
+    let right: Arm = pose === 'throw' && facing < 0 ? 'up' : 'down';
+    if (move) ({ left, right } = move);
 
     ctx.save();
-    ctx.translate(g.x, g.y);
-    if (pose === 'cheer' && !scene.reduced) ctx.translate(0, -Math.abs(beat) * 4);
+    ctx.translate(g.x + (move?.dx ?? 0), g.y - (move?.lift ?? 0));
+    if (move?.spin) {
+      ctx.translate(0, -16);
+      ctx.rotate(move.spin);
+      ctx.translate(0, 16);
+    } else if (move) ctx.rotate(move.dx * 0.025);
     if (pose === 'dazed') ctx.rotate(scene.reduced ? 0.12 : 0.12 + Math.sin(t * 5) * 0.05);
 
     // soft outline so the gorilla reads against any sky
@@ -384,12 +410,30 @@ export class Renderer {
     rect(-10, -22, 20, 14, fur);
     rect(-6, -20, 12, 8, retro ? fur : '#6f4a35');
 
-    const leftUp = pose === 'cheer' ? scene.reduced || beat > 0 : pose === 'throw' && facing > 0;
-    const rightUp = pose === 'cheer' ? scene.reduced || beat <= 0 : pose === 'throw' && facing < 0;
-    rect(-14, leftUp ? -35 : -22, 4, 14, fur);
-    rect(10, rightUp ? -35 : -22, 4, 14, fur);
-    rect(-14, leftUp ? -37 : -9, 4, 3, dark);
-    rect(10, rightUp ? -37 : -9, 4, 3, dark);
+    const arm = (side: -1 | 1, a: Arm) => {
+      const x = side < 0 ? -14 : 10;
+      if (a === 'down') {
+        rect(x, -22, 4, 14, fur);
+        rect(x, -9, 4, 3, dark);
+      } else if (a === 'up') {
+        rect(x, -35, 4, 14, fur);
+        rect(x, -37, 4, 3, dark);
+      } else if (a === 'mouth') {
+        rect(x, -22, 4, 5, fur);
+        rect(side < 0 ? -13 : 8, -28, 5, 8, fur);
+        rect(side < 0 ? -9 : 5, -28, 4, 3, dark);
+      } else if (a === 'chestIn') {
+        rect(x, -22, 4, 5, fur);
+        rect(side < 0 ? -13 : 3, -18, 10, 4, fur);
+        rect(side < 0 ? -5 : 1, -18, 4, 4, dark);
+      } else {
+        rect(x, -22, 4, 5, fur);
+        rect(side < 0 ? -19 : 9, -20, 10, 4, fur);
+        rect(side < 0 ? -21 : 17, -20, 4, 4, dark);
+      }
+    };
+    arm(-1, left);
+    arm(1, right);
 
     rect(-6, -32, 12, 11, fur);
     rect(-6, -33, 12, 3, PLAYER_COLORS[id]); // headband = player colour
@@ -412,16 +456,23 @@ export class Renderer {
       }
       rect(-1.5, -24.5, 3, 2.5, dark);
     } else {
-      rect(-3.5 + look, blink ? -26 : -27, 2, blink ? 1 : 2, '#1a0f0a');
-      rect(1.5 + look, blink ? -26 : -27, 2, blink ? 1 : 2, '#1a0f0a');
+      const happy = pose === 'cheer';
+      rect(-3.5 + look, blink ? -26 : -27, 2, blink || happy ? 1 : 2, ink);
+      rect(1.5 + look, blink ? -26 : -27, 2, blink || happy ? 1 : 2, ink);
       const b = scene.banana;
       const worried = !!b && pose === 'idle' && Math.hypot(b.x - g.x, b.y - (g.y - 15)) < 90;
-      if (pose === 'cheer') {
-        rect(-3, -24.5, 6, 1.5, '#1a0f0a');
-        rect(-3, -25.5, 1, 1, '#1a0f0a');
-        rect(2, -25.5, 1, 1, '#1a0f0a');
-      } else if (worried) rect(-1, -24.8, 2, 2.2, '#1a0f0a');
-      else rect(-2, -24, 4, 1, '#1a0f0a');
+      if (move?.chewing) rect(-1.5, -25, 3, 2.5, ink);
+      else if (happy) {
+        rect(-3, -24.5, 6, 1.5, ink);
+        rect(-3, -25.5, 1, 1, ink);
+        rect(2, -25.5, 1, 1, ink);
+      } else if (worried) rect(-1, -24.8, 2, 2.2, ink);
+      else rect(-2, -24, 4, 1, ink);
+    }
+    if (move && move.banana !== 'none') {
+      const left = (1 - move.bites / 3) * 0.9 + 0.1;
+      if (move.banana === 'high') this.bananaShape(facing * 12, -39, facing * 0.5, 1);
+      else this.bananaShape(facing * 7, -24, facing * 1.2, left);
     }
     ctx.restore();
   }
@@ -467,7 +518,7 @@ export class Renderer {
     this.bananaShape(start.x, start.y, -0.4);
   }
 
-  private bananaShape(x: number, y: number, rot: number): void {
+  private bananaShape(x: number, y: number, rot: number, whole = 1): void {
     const ctx = this.ctx;
     ctx.save();
     ctx.translate(x, y);
@@ -477,7 +528,7 @@ export class Renderer {
       ctx.strokeStyle = color;
       ctx.lineWidth = width;
       ctx.beginPath();
-      ctx.arc(0, -5, 6.5, 0.15 * Math.PI, 0.85 * Math.PI);
+      ctx.arc(0, -5, 6.5, 0.15 * Math.PI, (0.15 + 0.7 * whole) * Math.PI);
       ctx.stroke();
     }
     ctx.restore();

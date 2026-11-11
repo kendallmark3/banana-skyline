@@ -32,6 +32,9 @@ Netlify, S3, a USB stick). No server, accounts, secrets or network calls.
 ## Play
 
 - **Solo** against the computer (default) or **two players** on one device — *New game* switches.
+- The computer plays at **Easy**, **Normal** or **Hard**: it needs roughly 8, 5 or 3 throws to find you.
+- The winner celebrates: chest-pound, a dance, a banana snack, and a backflip for winning the match.
+  *Next round* (or Space) skips it.
 - First to 3 points wins the match (1 or 5 also available). Every point starts a fresh skyline.
 - Hitting yourself gives the other gorilla the point.
 - The dotted line left in the sky is your previous throw; the panel shows its angle and power.
@@ -55,7 +58,7 @@ seeded, fixed-timestep game logic with no browser dependencies; `src/render.ts` 
 
 ## Evidence
 
-- `npm test` — 17 tests, including "same seed and inputs give the identical path and result".
+- `npm test` — 24 tests, including "same seed and inputs give the identical path and result".
 - `npm run evidence` — drives the real UI: keyboard throw on desktop, a full two-player match to 3
   and a rematch that starts 0–0, the computer taking turns and scoring with zero network requests,
   Retro Mode, live resizing, touch controls and 44px targets on a phone viewport, no console errors.
@@ -64,7 +67,6 @@ seeded, fixed-timestep game logic with no browser dependencies; `src/render.ts` 
 ## Known limits
 
 - Sound and animation feel were checked by automated play and screenshots, not on physical phones.
-- The computer opponent has one difficulty.
 - The "nice after v1" list in the intent (daily challenge, achievements, best scores, replay
   capture) is not built.
 

@@ -23,3 +23,11 @@ A person can open a link, understand the game in seconds, play a complete banana
   audio, accessibility and responsive layouts. Evidence in `docs/screenshots/`.
 - **Not built (listed "nice after v1"):** daily seeded challenge, achievements, best scores, replay
   capture, difficulty and palette settings. `?seed=N` already replays a skyline.
+
+### Delta 1 — after first play (2026-11-11)
+- **Keep:** everything in v0.1.0.
+- **Change:** the winning gorilla should put on a show. Now: chest-pound, dance, eats a banana in
+  three bites, confetti, and a backflip on a match win. Skippable; a still pose under reduced motion.
+- **Change:** one computer difficulty was a showstopper. Now Easy / Normal / Hard in *New game*.
+- **Evidence:** `tests/celebrate.test.ts`, the difficulty ordering test in `tests/sim.test.ts`,
+  and `docs/screenshots/celebrate-*.png`.
